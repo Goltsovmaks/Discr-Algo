@@ -1,0 +1,256 @@
+package pack;
+
+import java.util.ArrayList;
+import java.util.Scanner;
+
+
+public class BlackPorez {
+	
+	public static void main(String[] args) 
+	{		
+		ArrayList <int[]> vectors = new ArrayList<>();
+				
+		//////////Ввод данных///////////
+		Scanner sc = new Scanner (System.in);
+		System.out.println("Введите число переменных");	
+		int countVariables = sc.nextInt();		
+		System.out.println("Выпишите число дизъюнкций");		
+		int countDisunctions = sc.nextInt();		
+		String s = new String();
+		System.out.println("Построчно введите каждую дизъюнкцию используя 3 знака \n'1' если переменная присутствует '0', если она с отрицанием и '_' -ее нет (знак v ставить не надо)");
+		
+		Scanner scc = new Scanner (System.in); 
+		//следующая операция считывания строки принимает энтр, особенность сканнера
+		
+		//создание троичных векторов
+		for (int i=0;i<countDisunctions;i++) {					
+			s = scc.nextLine();
+			vectors.add(createVector(s,countVariables)); 
+		}
+		///////Шаг 1. удаление векторов, поглащаемых другими
+		vectors = deleteConsume(vectors,countVariables);
+		
+		if (vectors.size() ==1) { //если один вектор, его не упростить 
+			writeVectors(vectors, countVariables);		
+			return;
+		}
+		
+		
+		///////Шаги 2-5////////////////////
+		int indexA = 1; //индекс тек.вектора
+		int indexAjacentVector; //индекс смежного вектора
+		ArrayList <int[]> found = new ArrayList<>(); //необходим для поиска смежных векторов (чтобы не находить уже учтенные)
+		while (indexA < vectors.size()) // проходим по каждому элементу списка
+		{			
+			boolean vectorWillDelited = false; //будет ли вектор удален (нужно для коррекции индекса)
+			//удаляем смежные до текущего
+			indexAjacentVector = findAdjacentVectorBeforThis(vectors, indexA, countVariables, found);
+			
+			//если нашли смежный вектор из векторов выше и если этот вектор не удалился
+			while ( (indexAjacentVector!= -1) &&!vectorWillDelited) { 				
+				
+				found.add(vectors.get(indexAjacentVector)); //пополняем список смежных векторов текущего вектора 			
+				//обобщенно склеиваем и добавляем в конец
+				vectors.add(bondingVectors(vectors.get(indexAjacentVector), vectors.get(indexA),countVariables)); 							
+				////шаг 3////////				
+				if (VectorIsConsumed(vectors, vectors.size()-1))  //если вектор поглощается каким-либо вектором из списка
+					vectors.remove(vectors.size()-1); //удалим этот вектор			
+				else { // если ничем не поглощается, удалим вектора, поглощаемые данным
+									
+					//проверяем будет ли текущий вектор удален склееным (операция нужна для просчета корректного индекса
+					vectorWillDelited = detectConsum(vectors.get(indexA),vectors.get(vectors.size()-1), countVariables );
+				
+					//корректировка текущего элемента (вектора до этого могут быть поглощены)
+					indexA = indexA -  countVectorsBeforeThisConsumed(vectors, indexA, (vectors.size()-1));	
+					
+					deleteConsuming (vectors); //удаляет все вектора, поглощаемые последним вектором									
+				}				
+				 //ищем следующий смежный вектор
+				indexAjacentVector = findAdjacentVectorBeforThis(vectors, indexA, countVariables, found);
+			}		
+			found.clear(); //просмотрели все смежные вектора для текущего
+			//шаг 4
+			if (!vectorWillDelited) { //если бы текущий вектор удалился, индекс не нужно было увеличивать
+				indexA++;			
+			}
+		}
+		
+		
+		//вывод сокращенной формулы
+		writeVectors(vectors, countVariables);
+		
+		sc.close();
+		scc.close();			
+	}
+		
+
+
+	//удаляет все вектора, поглощаемые последним вектором
+	private static void deleteConsuming(ArrayList<int[]> vectors) {	
+		int k = 0;		
+		while (k< vectors.size()-1) {
+			//поняли что последний вектор поглощает iый
+			if (detectConsum(vectors.get(k), vectors.get(vectors.size()-1), vectors.get(k).length)) {
+				vectors.remove(k);
+				continue;
+			}
+			k++;	
+		}	
+	}
+
+	//возвращает сколько векторов будет удалено до текущего в результе поглощения
+	private static int countVectorsBeforeThisConsumed(ArrayList<int[]> vectors,int indexVector, int indexConsumer) {
+		int count = 0;	
+		int k = 0;
+		
+		while (k<indexVector) { //пока не просмотрим все вектора, кроме данного			
+			if (detectConsum(vectors.get(k), vectors.get(indexConsumer), vectors.get(k).length)) {
+				count++;
+			}
+			k++;
+		}				
+		return count;
+	}
+
+
+	//проверяет поглощается ли вектор с индексом indexAjacentVector, каким либо другим из списка
+	private static boolean VectorIsConsumed(ArrayList<int[]> vectors, int indexConsumed) {	
+		for (int i = 0; i< vectors.size()-1;i++) {
+			if (detectConsum(vectors.get(indexConsumed), vectors.get(i), vectors.get(i).length))
+				return true;
+		}	
+		return false;
+	}
+
+
+
+
+
+	private static int[] bondingVectors(int[] vector1, int[] vector2, int countVars) {
+
+		int [] mas = new int [countVars];
+		for (int i = 0; i<vector1.length; i++) {			
+			if (vector1[i] == vector2[i]) { //обе совпали пропускаем (даже если -1 -1 ( "_" "_") )
+				mas[i] = vector1[i];
+				continue;
+			}
+		//	  если одна компонента "_" а вторая число, результат число
+			if (vector1[i] == -1) {
+				mas[i] = vector2[i];
+				continue;
+			}
+			if (vector2[i] == -1) {
+				mas[i] = vector1[i];
+				continue;
+			}
+			mas[i] = -1; //обе разные		
+		}
+		return mas;
+	}
+
+
+	private static void writeVectors(ArrayList<int[]> vectors, int countVars) {
+		for (int i = 0; i< vectors.size();i++) {
+			for (int j = 0; j< countVars;j++) {
+				if (vectors.get(i)[j] == -1) {
+					System.out.print('_');
+					continue;
+				}
+				System.out.print(vectors.get(i)[j]);
+			}
+		if(i != (vectors.size() -1 ))
+			System.out.print(" v ");
+		}	
+	}
+
+	
+	private static int[] createVector(String s,int countVariables) {
+		int [] mas = new int[countVariables];
+		int k = 0;
+		for (int i = 0; i< s.length();i++) 
+		{						
+			if (s.charAt(i)=='0')
+			{
+				mas[k]=0;
+				k++;
+			}
+			if (s.charAt(i)=='1')
+			{
+				mas[k]=1;
+				k++;
+			}
+			if (s.charAt(i)=='_')
+			{
+				mas[k]=-1;
+				k++;
+			}
+		}		
+		return mas;
+	}
+
+	private static ArrayList<int[]> deleteConsume(ArrayList<int[]> vectors, int maxLenght) {
+		
+		int k = 0;
+		boolean deleteVector = false;
+
+		while (k < vectors.size()) { //пока не просмотрим все вектора на наличие поглощений
+			for (int i=0; i<vectors.size();i++) { //рассматриваем k-ый вектор				
+				if (i==k) 
+					continue;				
+				if (detectConsum (vectors.get(k), vectors.get(i),maxLenght)) { 
+					//если k-ый вектор поглощается i-ым
+					vectors.remove(k); 
+					deleteVector = true;
+				}
+			}
+			if (deleteVector) { //был удален вектор, смещение следующих на 1 назад
+				deleteVector = false;
+				continue;
+			}
+			k++;
+		}		
+		return vectors;
+	}
+
+	private static boolean detectConsum(int[] vector, int[] consumer, int maxLenth) {
+		
+		for (int i=0; i<maxLenth; i++) {					
+			if ((vector[i] != consumer[i]) && (consumer[i] != -1)  ) {
+				return false;			
+			}
+		}		
+		return true; //прошлись по всей длине, выявили, что vector поглощается
+	}
+
+	
+	private static int findAdjacentVectorBeforThis(ArrayList<int[]> vectors, int indexA, int countVariables, ArrayList<int[]> found )
+	//находит индекс первого смежного вектора находящегося перед вектором с индексом indexA
+	{ 
+		int k = 0;		
+
+		while (k < indexA) {			
+			if (detectAdjacent(vectors.get(k), vectors.get(indexA), countVariables)) { //нашли смежный вектор
+				if (!found.contains(vectors.get(k)))
+					return k;
+			}
+			k++;
+		}	
+		return -1;
+	}
+
+	private static boolean detectAdjacent(int[] vector, int[] vectorA, int countVariables) {		
+		boolean isAdjacent = false;
+		
+		for (int i = 0; i< countVariables;i++) {				
+			if ((vectorA[i] == -1) || (vector[i] == -1)) // если эл-нт какого то из векторов имеет значение '_' пропускаем
+				continue;			
+			if (vector[i] != vectorA[i]) { //нашли потенциальную смежность				
+				if (isAdjacent) //уже смежна по одной компонетне, смежность по 2-ум нельзя!
+					return false;
+				isAdjacent = true;
+			}			
+		}
+		return isAdjacent; //прошли по всему вектору false - не нашли ни одной, или нашли 2, true - нашли 1 компоненту
+	}	
+
+}
