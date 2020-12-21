@@ -1,1 +1,134 @@
-j
+package Pack;
+
+import java.util.Scanner;
+import java.util.function.DoubleToIntFunction;
+
+public class Zhegalkin {
+
+	public static boolean slogeniePoModulu2(Boolean x , Boolean y) {	
+		if (x && y)
+			return false;
+		return (x||y);
+	}
+	
+	
+	
+	 //перевернутая таблица истинности без значений функции. 
+	//номер строки = i-ая переменная, столбцы - значения переменных!!!
+	/*
+	 * для 3х переменных 
+	 * имеет вид 0 0 0 0 1 1 1 1
+	 *           0 0 1 1 0 0 1 1
+	 *           0 1 0 1 0 1 0 1
+	 */
+	public static int[][] createTabl (int countVars, int countRows) {
+		int [][]mas = new int[countVars][countRows];
+		
+		for (int i = 0; i <countVars;i++) {  //заполняем по по переменным
+			for (int j = 0; j< Math.pow(2, i+1);j++)
+			{ //рассматримаем по блокам (половина, 1/4...)
+				for (int k = 0; k < (countRows)/Math.pow(2, i+1);k++) //заполняем текущий блок
+				{
+					
+					//находим размер блока с одинаковыми значениями
+					Double countR =  (countRows)/Math.pow(2, i+1);
+				    Integer p =  countR.intValue(); 
+
+					mas[i][j*p+k] = j % 2;					
+				}
+			}
+		}
+		return mas;
+	}
+	
+	public static String createDizuction (int [] a) {
+		String s = "";	
+		for (int i = 0; i< a.length; i++) {
+			if (a[i] == 1)
+				s = s + "x"+(i+1);
+		}	
+		return s;
+	}
+	
+	
+	public static void main(String[] args) {
+		
+		
+		/////ввод данных
+	       Scanner sc = new Scanner(System.in);
+	       
+	       System.out.println("Введи кол-во переменных");
+	       
+	       Double countVars= sc.nextDouble();
+	       
+	       Double countOfRows = Math.pow(2, countVars);
+	       
+	       System.out.println("Введи значения функции по таблице истинности");
+	       	       
+	       Integer countRows = countOfRows.intValue(); 
+	       Integer countVariables = countVars.intValue(); 
+
+	       boolean[] funcResults = new boolean[countRows]; 
+	       
+	       for (int i = 0; i< countOfRows; i++)
+	       {   
+	    	   int x = sc.nextInt();    	  	    	       	   
+    		   funcResults[i] = false;
+	    	   if (x == 1)
+	    		   funcResults[i] = true;
+	   	    }
+	       
+	     //создание треугольника//////////
+	       boolean [][] trianglePaskal = new boolean [countRows][countRows]; 
+	       for (int i = 0; i< countRows; i++) //первая строка
+	    	   trianglePaskal[0][i] = funcResults[i];
+		
+	       int k = 1;
+	       for (int i = 1; i <countRows; i++) {
+	    	   
+	    	   for (int j = 0; j< countRows-k; j++) {
+	    		   
+	    		   boolean x = trianglePaskal[i-1][j];
+	    		   boolean y = trianglePaskal[i-1][j+1];
+	    		   
+	    		   trianglePaskal[i][j] = slogeniePoModulu2(x,y);
+	    	   }
+	    	   k++;
+	       }
+	       
+	       
+	    
+		int [][]mas = createTabl(countVariables, countRows); //создание таблицы истинности
+		int [] row = new int[countVariables]; //строка т.и.
+		
+		String answ = "";		
+		String dizunction = ""; // дизъюнкция, получающаяся из строки т.и.
+		
+		for (int i = 0; i<countRows; i++) { // создаю возможные дизьюнкции	
+			
+			if (trianglePaskal[i][0]) //если первый эле-т треугольника  = 1
+			{ 			
+				for (int j = 0; j <countVariables;j++) //проходимся по строкам таблицы истинности
+						row[j] = mas[j][i]; 							
+				dizunction = createDizuction(row); 
+				if ( i == 0) //первый элемент 1
+				{
+					dizunction = "1";
+					answ = "1";
+					continue;
+				}
+				if (answ.equals("")) //нашли первый эл-нт полинома
+					answ =dizunction + " ";
+				else //нашли не первый эл-нт полинома
+					answ = answ + "+ " + dizunction + " ";	
+			}
+			
+		}
+		
+		System.out.print("Получившийся бином: " + answ);
+	       	      
+	       
+	    sc.close();
+	}
+
+}
